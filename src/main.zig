@@ -1,10 +1,16 @@
 const rl = @import("raylib");
 
+const WrapResult = struct {
+    value: f32,
+    delta: f32,
+};
+
 pub fn main() !void {
     const screen_width = 800;
     const screen_height = 800;
     const render_width: i32 = 320;
     const render_height: i32 = 320;
+    const repeat_cell_size: f32 = 8.0;
     const snap_resolution = [2]f32{
         @as(f32, @floatFromInt(render_width)) / 2,
         @as(f32, @floatFromInt(render_height)) / 2,
@@ -89,6 +95,7 @@ pub fn main() !void {
 
     while (!rl.WindowShouldClose()) {
         rl.UpdateCamera(&camera, rl.CAMERA_FIRST_PERSON);
+        wrapCamera(&camera, repeat_cell_size);
 
         {
             rl.BeginTextureMode(scene_target);
@@ -99,7 +106,7 @@ pub fn main() !void {
             rl.BeginMode3D(camera);
             defer rl.EndMode3D();
 
-            rl.DrawModel(sphere, .{ .x = 0.0, .y = 0.0, .z = 0.0 }, 1.0, rl.WHITE);
+            drawRepeatedSphere(sphere, repeat_cell_size);
             // rl.DrawGrid(20, 1.0);
         }
 
@@ -126,6 +133,59 @@ pub fn main() !void {
                 0.0,
                 rl.WHITE,
             );
+        }
+    }
+}
+
+fn wrapCamera(camera: *rl.Camera3D, cell_size: f32) void {
+    const wrapped_x = wrapCoordinate(camera.position.x, cell_size);
+    const wrapped_y = wrapCoordinate(camera.position.y, cell_size);
+    const wrapped_z = wrapCoordinate(camera.position.z, cell_size);
+
+    camera.position.x = wrapped_x.value;
+    camera.position.y = wrapped_y.value;
+    camera.position.z = wrapped_z.value;
+
+    camera.target.x += wrapped_x.delta;
+    camera.target.y += wrapped_y.delta;
+    camera.target.z += wrapped_z.delta;
+}
+
+fn wrapCoordinate(value: f32, cell_size: f32) WrapResult {
+    const half_cell_size = cell_size * 0.5;
+    var wrapped = value;
+
+    while (wrapped >= half_cell_size) {
+        wrapped -= cell_size;
+    }
+    while (wrapped < -half_cell_size) {
+        wrapped += cell_size;
+    }
+
+    return .{
+        .value = wrapped,
+        .delta = wrapped - value,
+    };
+}
+
+fn drawRepeatedSphere(sphere: rl.Model, cell_size: f32) void {
+    var z: i32 = -2;
+    while (z <= 2) : (z += 1) {
+        var y: i32 = -2;
+        while (y <= 2) : (y += 1) {
+            var x: i32 = -2;
+            while (x <= 2) : (x += 1) {
+                rl.DrawModel(
+                    sphere,
+                    .{
+                        .x = @as(f32, @floatFromInt(x)) * cell_size,
+                        .y = @as(f32, @floatFromInt(y)) * cell_size,
+                        .z = @as(f32, @floatFromInt(z)) * cell_size,
+                    },
+                    1.0,
+                    rl.WHITE,
+                );
+            }
         }
     }
 }
