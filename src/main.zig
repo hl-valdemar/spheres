@@ -1,3 +1,4 @@
+const std = @import("std");
 const rl = @import("raylib");
 
 const WrapResult = struct {
@@ -23,7 +24,9 @@ const fog_start: f32 = 2.0;
 const fog_end: f32 = 25.0;
 const ambient_strength: f32 = 0.25;
 const color_levels: i32 = 16;
-const dither_strength: f32 = 0.75;
+const dither_strength: f32 = 0.90;
+const camera_move_speed: f32 = 4.0;
+const camera_mouse_sensitivity: f32 = 0.003;
 
 fn paletteColorFloats(comptime steps: [4]u8) [4]f32 {
     return .{
@@ -139,7 +142,7 @@ pub fn main() !void {
     };
 
     while (!rl.WindowShouldClose()) {
-        rl.UpdateCamera(&camera, rl.CAMERA_FIRST_PERSON);
+        updateCameraRelative(&camera);
         wrapCamera(&camera, repeat_cell_size);
 
         const camera_position = [3]f32{
@@ -194,6 +197,45 @@ pub fn main() !void {
     }
 }
 
+fn updateCameraRelative(camera: *rl.Camera3D) void {
+    const frame_time = rl.GetFrameTime();
+    const mouse_delta = rl.GetMouseDelta();
+
+    const current_forward = normalize3(.{
+        .x = camera.target.x - camera.position.x,
+        .y = camera.target.y - camera.position.y,
+        .z = camera.target.z - camera.position.z,
+    });
+
+    var yaw = std.math.atan2(current_forward.x, current_forward.z);
+    var pitch = std.math.asin(clamp(current_forward.y, -1.0, 1.0));
+
+    yaw -= mouse_delta.x * camera_mouse_sensitivity;
+    pitch -= mouse_delta.y * camera_mouse_sensitivity;
+    pitch = clamp(pitch, -1.45, 1.45);
+
+    const pitch_cos = @cos(pitch);
+    const forward = rl.Vector3{
+        .x = @sin(yaw) * pitch_cos,
+        .y = @sin(pitch),
+        .z = @cos(yaw) * pitch_cos,
+    };
+    const flat_forward = normalize3(.{ .x = forward.x, .y = 0.0, .z = forward.z });
+    const right = rl.Vector3{ .x = -flat_forward.z, .y = 0.0, .z = flat_forward.x };
+
+    var move = rl.Vector3{ .x = 0.0, .y = 0.0, .z = 0.0 };
+    if (rl.IsKeyDown(rl.KEY_W)) move = add3(move, forward);
+    if (rl.IsKeyDown(rl.KEY_S)) move = sub3(move, forward);
+    if (rl.IsKeyDown(rl.KEY_D)) move = add3(move, right);
+    if (rl.IsKeyDown(rl.KEY_A)) move = sub3(move, right);
+    if (rl.IsKeyDown(rl.KEY_SPACE)) move.y += 1.0;
+    if (rl.IsKeyDown(rl.KEY_LEFT_CONTROL)) move.y -= 1.0;
+
+    move = scale3(normalize3(move), camera_move_speed * frame_time);
+    camera.position = add3(camera.position, move);
+    camera.target = add3(camera.position, forward);
+}
+
 fn wrapCamera(camera: *rl.Camera3D, cell_size: f32) void {
     const wrapped_x = wrapCoordinate(camera.position.x, cell_size);
     const wrapped_y = wrapCoordinate(camera.position.y, cell_size);
@@ -206,6 +248,32 @@ fn wrapCamera(camera: *rl.Camera3D, cell_size: f32) void {
     camera.target.x += wrapped_x.delta;
     camera.target.y += wrapped_y.delta;
     camera.target.z += wrapped_z.delta;
+}
+
+fn clamp(value: f32, min_value: f32, max_value: f32) f32 {
+    if (value < min_value) return min_value;
+    if (value > max_value) return max_value;
+    return value;
+}
+
+fn add3(a: rl.Vector3, b: rl.Vector3) rl.Vector3 {
+    return .{ .x = a.x + b.x, .y = a.y + b.y, .z = a.z + b.z };
+}
+
+fn sub3(a: rl.Vector3, b: rl.Vector3) rl.Vector3 {
+    return .{ .x = a.x - b.x, .y = a.y - b.y, .z = a.z - b.z };
+}
+
+fn scale3(v: rl.Vector3, scalar: f32) rl.Vector3 {
+    return .{ .x = v.x * scalar, .y = v.y * scalar, .z = v.z * scalar };
+}
+
+fn normalize3(v: rl.Vector3) rl.Vector3 {
+    const length_squared = v.x * v.x + v.y * v.y + v.z * v.z;
+    if (length_squared <= 0.000001) return .{ .x = 0.0, .y = 0.0, .z = 0.0 };
+
+    const inv_length = 1.0 / @sqrt(length_squared);
+    return scale3(v, inv_length);
 }
 
 fn wrapCoordinate(value: f32, cell_size: f32) WrapResult {
