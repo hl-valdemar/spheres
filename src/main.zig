@@ -11,18 +11,37 @@ const render_width: i32 = 320;
 const render_height: i32 = 320;
 const repeat_cell_size: f32 = 8.0;
 const snap_resolution = [2]f32{
-    @as(f32, @floatFromInt(render_width)) / 2,
-    @as(f32, @floatFromInt(render_height)) / 2,
+    @as(f32, @floatFromInt(render_width)) / 2.5,
+    @as(f32, @floatFromInt(render_height)) / 2.5,
 };
 const light_direction = [3]f32{ -0.45, 0.8, -0.35 };
 const sphere_color = [4]f32{ 1.0, 0.3, 0.4, 1.0 };
-const fog_color = [4]f32{ 7.0 / 15.0, 7.0 / 15.0, 7.0 / 15.0, 1.0 };
-const fog_clear_color = rl.Color{ .r = 119, .g = 119, .b = 119, .a = 255 };
+const fog_color_steps = [4]u8{ 11, 10, 10, 15 };
+const fog_color = paletteColorFloats(fog_color_steps);
+const fog_clear_color = paletteColor(fog_color_steps);
 const fog_start: f32 = 2.0;
 const fog_end: f32 = 25.0;
 const ambient_strength: f32 = 0.25;
 const color_levels: i32 = 16;
 const dither_strength: f32 = 0.75;
+
+fn paletteColorFloats(comptime steps: [4]u8) [4]f32 {
+    return .{
+        @as(f32, @floatFromInt(steps[0])) / 15.0,
+        @as(f32, @floatFromInt(steps[1])) / 15.0,
+        @as(f32, @floatFromInt(steps[2])) / 15.0,
+        @as(f32, @floatFromInt(steps[3])) / 15.0,
+    };
+}
+
+fn paletteColor(comptime steps: [4]u8) rl.Color {
+    return .{
+        .r = steps[0] * 17,
+        .g = steps[1] * 17,
+        .b = steps[2] * 17,
+        .a = steps[3] * 17,
+    };
+}
 
 pub fn main() !void {
     rl.InitWindow(screen_width, screen_height, "spheres");
