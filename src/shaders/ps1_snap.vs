@@ -8,9 +8,13 @@ uniform mat4 matModel;
 uniform vec2 snapResolution;
 uniform vec3 lightDirection;
 uniform vec4 baseColor;
+uniform vec3 cameraPosition;
+uniform float fogStart;
+uniform float fogEnd;
 uniform float ambientStrength;
 
 out vec4 fragColor;
+out float fogVisibility;
 
 void main()
 {
@@ -27,4 +31,9 @@ void main()
     float light = clamp(ambientStrength + diffuse * (1.0 - ambientStrength), 0.0, 1.0);
 
     fragColor = vec4(baseColor.rgb * light, baseColor.a);
+
+    vec3 worldPosition = (matModel * vec4(vertexPosition, 1.0)).xyz;
+    float cameraDistance = distance(worldPosition, cameraPosition);
+    float linearFogVisibility = clamp((fogEnd - cameraDistance) / (fogEnd - fogStart), 0.0, 1.0);
+    fogVisibility = smoothstep(0.0, 1.0, linearFogVisibility);
 }

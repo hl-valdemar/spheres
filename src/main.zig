@@ -5,22 +5,26 @@ const WrapResult = struct {
     delta: f32,
 };
 
-pub fn main() !void {
-    const screen_width = 800;
-    const screen_height = 800;
-    const render_width: i32 = 320;
-    const render_height: i32 = 320;
-    const repeat_cell_size: f32 = 8.0;
-    const snap_resolution = [2]f32{
-        @as(f32, @floatFromInt(render_width)) / 2,
-        @as(f32, @floatFromInt(render_height)) / 2,
-    };
-    const light_direction = [3]f32{ -0.45, 0.8, -0.35 };
-    const sphere_color = [4]f32{ 1.0, 0.3, 0.4, 1.0 };
-    const ambient_strength: f32 = 0.25;
-    const color_levels: i32 = 16;
-    const dither_strength: f32 = 0.75;
+const screen_width = 800;
+const screen_height = 800;
+const render_width: i32 = 320;
+const render_height: i32 = 320;
+const repeat_cell_size: f32 = 8.0;
+const snap_resolution = [2]f32{
+    @as(f32, @floatFromInt(render_width)) / 2,
+    @as(f32, @floatFromInt(render_height)) / 2,
+};
+const light_direction = [3]f32{ -0.45, 0.8, -0.35 };
+const sphere_color = [4]f32{ 1.0, 0.3, 0.4, 1.0 };
+const fog_color = [4]f32{ 7.0 / 15.0, 7.0 / 15.0, 7.0 / 15.0, 1.0 };
+const fog_clear_color = rl.Color{ .r = 119, .g = 119, .b = 119, .a = 255 };
+const fog_start: f32 = 2.0;
+const fog_end: f32 = 25.0;
+const ambient_strength: f32 = 0.25;
+const color_levels: i32 = 16;
+const dither_strength: f32 = 0.75;
 
+pub fn main() !void {
     rl.InitWindow(screen_width, screen_height, "spheres");
     defer rl.CloseWindow();
 
@@ -40,6 +44,10 @@ pub fn main() !void {
     const snap_resolution_loc = rl.GetShaderLocation(snap_shader, "snapResolution");
     const light_direction_loc = rl.GetShaderLocation(snap_shader, "lightDirection");
     const base_color_loc = rl.GetShaderLocation(snap_shader, "baseColor");
+    const camera_position_loc = rl.GetShaderLocation(snap_shader, "cameraPosition");
+    const fog_color_loc = rl.GetShaderLocation(snap_shader, "fogColor");
+    const fog_start_loc = rl.GetShaderLocation(snap_shader, "fogStart");
+    const fog_end_loc = rl.GetShaderLocation(snap_shader, "fogEnd");
     const ambient_strength_loc = rl.GetShaderLocation(snap_shader, "ambientStrength");
     const color_levels_loc = rl.GetShaderLocation(snap_shader, "colorLevels");
     const dither_strength_loc = rl.GetShaderLocation(snap_shader, "ditherStrength");
@@ -61,6 +69,24 @@ pub fn main() !void {
         base_color_loc,
         &sphere_color,
         rl.SHADER_UNIFORM_VEC4,
+    );
+    rl.SetShaderValue(
+        snap_shader,
+        fog_color_loc,
+        &fog_color,
+        rl.SHADER_UNIFORM_VEC4,
+    );
+    rl.SetShaderValue(
+        snap_shader,
+        fog_start_loc,
+        &fog_start,
+        rl.SHADER_UNIFORM_FLOAT,
+    );
+    rl.SetShaderValue(
+        snap_shader,
+        fog_end_loc,
+        &fog_end,
+        rl.SHADER_UNIFORM_FLOAT,
     );
     rl.SetShaderValue(
         snap_shader,
@@ -97,11 +123,23 @@ pub fn main() !void {
         rl.UpdateCamera(&camera, rl.CAMERA_FIRST_PERSON);
         wrapCamera(&camera, repeat_cell_size);
 
+        const camera_position = [3]f32{
+            camera.position.x,
+            camera.position.y,
+            camera.position.z,
+        };
+        rl.SetShaderValue(
+            snap_shader,
+            camera_position_loc,
+            &camera_position,
+            rl.SHADER_UNIFORM_VEC3,
+        );
+
         {
             rl.BeginTextureMode(scene_target);
             defer rl.EndTextureMode();
 
-            rl.ClearBackground(rl.BLACK);
+            rl.ClearBackground(fog_clear_color);
 
             rl.BeginMode3D(camera);
             defer rl.EndMode3D();
@@ -114,7 +152,7 @@ pub fn main() !void {
             rl.BeginDrawing();
             defer rl.EndDrawing();
 
-            rl.ClearBackground(rl.BLACK);
+            rl.ClearBackground(fog_clear_color);
             rl.DrawTexturePro(
                 scene_target.texture,
                 .{
