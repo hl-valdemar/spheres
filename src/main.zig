@@ -28,21 +28,25 @@ const dither_strength: f32 = 0.90;
 const camera_move_speed: f32 = 4.0;
 const camera_mouse_sensitivity: f32 = 0.003;
 
+// four-bit color channels have 16 values, stored as steps 0..15
+const palette_max_step: f32 = 15.0;
+const palette_u8_step: u8 = 17; // 255 / 15
+
 fn paletteColorFloats(comptime steps: [4]u8) [4]f32 {
     return .{
-        @as(f32, @floatFromInt(steps[0])) / 15.0,
-        @as(f32, @floatFromInt(steps[1])) / 15.0,
-        @as(f32, @floatFromInt(steps[2])) / 15.0,
-        @as(f32, @floatFromInt(steps[3])) / 15.0,
+        @as(f32, @floatFromInt(steps[0])) / palette_max_step,
+        @as(f32, @floatFromInt(steps[1])) / palette_max_step,
+        @as(f32, @floatFromInt(steps[2])) / palette_max_step,
+        @as(f32, @floatFromInt(steps[3])) / palette_max_step,
     };
 }
 
 fn paletteColor(comptime steps: [4]u8) rl.Color {
     return .{
-        .r = steps[0] * 17,
-        .g = steps[1] * 17,
-        .b = steps[2] * 17,
-        .a = steps[3] * 17,
+        .r = steps[0] * palette_u8_step,
+        .g = steps[1] * palette_u8_step,
+        .b = steps[2] * palette_u8_step,
+        .a = steps[3] * palette_u8_step,
     };
 }
 
@@ -167,7 +171,6 @@ pub fn main() !void {
             defer rl.EndMode3D();
 
             drawRepeatedSphere(sphere, repeat_cell_size);
-            // rl.DrawGrid(20, 1.0);
         }
 
         {
