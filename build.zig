@@ -68,7 +68,7 @@ fn resolveWindowsRaylibPaths(b: *std.Build) WindowsRaylibPaths {
 
 fn buildCommon(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, raylib_include: ?[]const u8) BuildContext {
     const translate_rl = b.addTranslateC(.{
-        .root_source_file = b.path("src/lib/raylib.h"),
+        .root_source_file = b.path("src/vendor/raylib.h"),
         .target = target,
         .optimize = optimize,
     });
